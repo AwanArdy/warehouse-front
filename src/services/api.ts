@@ -381,6 +381,19 @@ class ApiClient {
     const query = token ? `?token=${encodeURIComponent(token)}` : '';
     return `${API_BASE_URL}/api/v1/documents/${documentId}/pdf${query}`;
   }
+
+  async getDocumentPdfBlob(documentId: string): Promise<Blob> {
+    const token = this.getAccessToken();
+    const url = this.getDocumentPdfUrl(documentId);
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.message || `Gagal mengunduh file PDF (${res.status} ${res.statusText})`);
+    }
+    return await res.blob();
+  }
 }
 
 export const api = new ApiClient();

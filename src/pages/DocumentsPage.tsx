@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileCheck,
   FileText,
+  Loader2,
   Plus,
   Printer,
   RefreshCw,
@@ -40,6 +41,42 @@ export const DocumentsPage: React.FC<DocsProps> = ({
 
   // Preview Modal State
   const [previewDoc, setPreviewDoc] = useState<OfficialDocument | null>(null);
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let activeBlobUrl: string | null = null;
+    if (previewDoc) {
+      setPreviewLoading(true);
+      setPreviewError(null);
+      setPreviewBlobUrl(null);
+
+      api
+        .getDocumentPdfBlob(previewDoc.id)
+        .then((blob) => {
+          activeBlobUrl = URL.createObjectURL(blob);
+          setPreviewBlobUrl(activeBlobUrl);
+        })
+        .catch((err: unknown) => {
+          const error = err as { message?: string };
+          setPreviewError(error.message || 'Gagal memuat file PDF untuk pratinjau.');
+        })
+        .finally(() => {
+          setPreviewLoading(false);
+        });
+    } else {
+      setPreviewBlobUrl(null);
+      setPreviewError(null);
+      setPreviewLoading(false);
+    }
+
+    return () => {
+      if (activeBlobUrl) {
+        URL.revokeObjectURL(activeBlobUrl);
+      }
+    };
+  }, [previewDoc]);
 
   // Void Modal State
   const [voidDoc, setVoidDoc] = useState<OfficialDocument | null>(null);
@@ -347,7 +384,7 @@ export const DocumentsPage: React.FC<DocsProps> = ({
 
               <div className="flex items-center space-x-2">
                 <a
-                  href={api.getDocumentPdfUrl(previewDoc.id)}
+                  href={previewBlobUrl || api.getDocumentPdfUrl(previewDoc.id)}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors"
@@ -356,7 +393,7 @@ export const DocumentsPage: React.FC<DocsProps> = ({
                   Buka Tab Baru
                 </a>
                 <a
-                  href={api.getDocumentPdfUrl(previewDoc.id)}
+                  href={previewBlobUrl || api.getDocumentPdfUrl(previewDoc.id)}
                   download={`${previewDoc.documentNumber.replace(/\//g, '_')}.pdf`}
                   className="inline-flex items-center px-3 py-1.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors shadow-sm"
                 >
@@ -373,12 +410,33 @@ export const DocumentsPage: React.FC<DocsProps> = ({
             </div>
 
             {/* Modal Body: Embedded PDF Frame */}
-            <div className="flex-1 bg-slate-800 p-1 relative">
-              <iframe
-                src={api.getDocumentPdfUrl(previewDoc.id)}
-                title={`Pratinjau Dokumen ${previewDoc.documentNumber}`}
-                className="w-full h-full rounded-b-xl border-0 bg-white"
-              />
+            <div className="flex-1 bg-slate-900/90 p-1 relative flex flex-col items-center justify-center min-h-[500px]">
+              {previewLoading && (
+                <div className="flex flex-col items-center justify-center text-white py-12 space-y-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-brand-400" />
+                  <p className="text-sm font-medium">Memuat pratinjau dokumen PDF...</p>
+                  <p className="text-xs text-slate-400">Menyiapkan stream dokumen berkeamanan tinggi</p>
+                </div>
+              )}
+
+              {previewError && (
+                <div className="p-6 max-w-md text-center text-white space-y-3 bg-slate-800/80 rounded-xl border border-slate-700 m-4">
+                  <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto" />
+                  <p className="text-sm font-semibold text-rose-300">{previewError}</p>
+                  <p className="text-xs text-slate-400">
+                    Jika dokumen baru saja diterbitkan, sistem antrean mungkin masih mengompilasi berkas.
+                    Anda juga dapat mencoba klik tombol Unduh di kanan atas.
+                  </p>
+                </div>
+              )}
+
+              {previewBlobUrl && !previewLoading && (
+                <iframe
+                  src={previewBlobUrl}
+                  title={`Pratinjau Dokumen ${previewDoc.documentNumber}`}
+                  className="w-full h-full rounded-b-xl border-0 bg-white"
+                />
+              )}
             </div>
           </div>
         </div>
