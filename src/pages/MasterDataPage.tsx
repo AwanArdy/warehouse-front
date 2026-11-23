@@ -40,6 +40,12 @@ export const MasterDataPage: React.FC<MasterProps> = ({ onNotify }) => {
   const [unitVolumeM3, setUnitVolumeM3] = useState<number>(0.02);
   const [unitWeightKg, setUnitWeightKg] = useState<number>(1.5);
 
+  // New Warehouse Modal State
+  const [isWarehouseModalOpen, setIsWarehouseModalOpen] = useState(false);
+  const [warehouseCode, setWarehouseCode] = useState('');
+  const [warehouseName, setWarehouseName] = useState('');
+  const [maxVolumeM3, setMaxVolumeM3] = useState<number>(10000);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadData = async () => {
@@ -124,6 +130,28 @@ export const MasterDataPage: React.FC<MasterProps> = ({ onNotify }) => {
     }
   };
 
+  const handleCreateWarehouse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.createWarehouse({
+        code: warehouseCode.toUpperCase(),
+        name: warehouseName,
+        maxVolumeM3,
+      });
+      onNotify('success', `Gudang ${warehouseCode} berhasil didaftarkan!`);
+      setIsWarehouseModalOpen(false);
+      setWarehouseCode('');
+      setWarehouseName('');
+      void loadData();
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      onNotify('error', error.message || 'Gagal mendaftarkan gudang');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -156,6 +184,16 @@ export const MasterDataPage: React.FC<MasterProps> = ({ onNotify }) => {
             >
               <Plus className="w-4 h-4 mr-1.5" />
               Tambah SKU Barang
+            </button>
+          )}
+
+          {activeTab === 'warehouses' && (
+            <button
+              onClick={() => setIsWarehouseModalOpen(true)}
+              className="inline-flex items-center px-4 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md shadow-brand-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Tambah Gudang Baru
             </button>
           )}
         </div>
@@ -523,6 +561,81 @@ export const MasterDataPage: React.FC<MasterProps> = ({ onNotify }) => {
                   className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50"
                 >
                   {isSubmitting ? 'Menyimpan...' : 'Simpan SKU'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal: Tambah Gudang */}
+      {isWarehouseModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-base font-bold text-slate-900 flex items-center">
+              <WarehouseIcon className="w-5 h-5 mr-2 text-brand-600" />
+              Pendaftaran Gudang Baru
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Daftarkan fasilitas gudang logistik baru dalam kawasan pergudangan.
+            </p>
+
+            <form onSubmit={handleCreateWarehouse} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Kode Gudang
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={warehouseCode}
+                  onChange={(e) => setWarehouseCode(e.target.value.toUpperCase())}
+                  placeholder="Contoh: GDG-TIMUR"
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2.5 font-mono uppercase font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nama Fasilitas Gudang
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={warehouseName}
+                  onChange={(e) => setWarehouseName(e.target.value)}
+                  placeholder="Contoh: Gudang Transit Regional Timur"
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2.5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Kapasitas Ruang Maksimal (m³)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="10"
+                  value={maxVolumeM3}
+                  onChange={(e) => setMaxVolumeM3(Number(e.target.value))}
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2.5 font-mono"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setIsWarehouseModalOpen(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Gudang'}
                 </button>
               </div>
             </form>

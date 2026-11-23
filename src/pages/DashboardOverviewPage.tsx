@@ -56,7 +56,10 @@ export const DashboardOverviewPage: React.FC<DashboardProps> = ({
 
   const usedVolume = inventoryReport?.utilization?.usedVolumeM3 ?? 0;
   const maxVolume = inventoryReport?.utilization?.maxVolumeM3 ?? activeWarehouse?.maxVolumeM3 ?? 10000;
-  const utilizationPct = inventoryReport?.utilization?.utilizationPercentage ?? 0;
+  const utilizationPct =
+    inventoryReport?.utilization?.utilizationPercentage ??
+    (inventoryReport?.utilization as any)?.utilizationPercent ??
+    0;
 
   return (
     <div className="space-y-6">

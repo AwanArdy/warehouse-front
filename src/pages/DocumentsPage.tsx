@@ -48,6 +48,7 @@ export const DocumentsPage: React.FC<DocsProps> = ({
 
   // Daily Recap Modal State
   const [isRecapModalOpen, setIsRecapModalOpen] = useState(false);
+  const [selectedRecapWarehouseId, setSelectedRecapWarehouseId] = useState<string>('');
   const [recapDate, setRecapDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [isGeneratingRecap, setIsGeneratingRecap] = useState(false);
 
@@ -112,9 +113,14 @@ export const DocumentsPage: React.FC<DocsProps> = ({
   // Handle Daily Recap Generation
   const handleGenerateRecapSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const targetWhId = selectedRecapWarehouseId || activeWarehouseId;
+    if (!targetWhId) {
+      onNotify('error', 'Pilih lokasi gudang terlebih dahulu');
+      return;
+    }
     setIsGeneratingRecap(true);
     try {
-      await api.generateDailyRecap(activeWarehouseId, recapDate);
+      await api.generateDailyRecap(targetWhId, recapDate);
       onNotify('success', `Pengajuan Rekapitulasi Harian tanggal ${recapDate} dikirim ke antrean kompilasi LaTeX!`);
       setIsRecapModalOpen(false);
       void loadDocuments();
@@ -442,6 +448,23 @@ export const DocumentsPage: React.FC<DocsProps> = ({
             <form onSubmit={handleGenerateRecapSubmit} className="mt-4 space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Lokasi Gudang
+                </label>
+                <select
+                  value={selectedRecapWarehouseId || activeWarehouseId}
+                  onChange={(e) => setSelectedRecapWarehouseId(e.target.value)}
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2.5 font-semibold bg-slate-50"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.code} - {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Tanggal Laporan
                 </label>
                 <input
@@ -494,7 +517,18 @@ export const DocumentsPage: React.FC<DocsProps> = ({
                 <select
                   required
                   value={selectedTxId}
-                  onChange={(e) => setSelectedTxId(e.target.value)}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedTxId(id);
+                    const tx = activeTransactions.find((t) => t.id === id);
+                    if (tx) {
+                      if (tx.direction === 'INBOUND') {
+                        setSelectedDocType(tx.status === 'DOC_PENDING' || tx.status === 'DOC_ISSUED' ? 'BASTB' : 'GATE_PASS');
+                      } else {
+                        setSelectedDocType(tx.status === 'DOC_PENDING' || tx.status === 'DOC_ISSUED' ? 'SURAT_JALAN' : 'GATE_PASS');
+                      }
+                    }
+                  }}
                   className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50 font-semibold"
                 >
                   {activeTransactions.length === 0 ? (
@@ -502,7 +536,7 @@ export const DocumentsPage: React.FC<DocsProps> = ({
                   ) : (
                     activeTransactions.map((tx) => (
                       <option key={tx.id} value={tx.id}>
-                        {tx.ticketNumber} ({tx.plateNumber}) • {tx.direction} • {tx.status}
+                        {tx.ticketNumber} ({tx.plateNumber || 'Armada'}) • {tx.direction} • {tx.status}
                       </option>
                     ))
                   )}
@@ -519,8 +553,13 @@ export const DocumentsPage: React.FC<DocsProps> = ({
                   className="w-full text-xs border border-slate-300 rounded-lg p-2.5 font-semibold bg-slate-50"
                 >
                   <option value="GATE_PASS">Gate Pass (Tiket Masuk Kawasan)</option>
-                  <option value="BASTB">BASTB (Berita Acara Bongkar Inbound)</option>
-                  <option value="SURAT_JALAN">Surat Jalan (Manifest Muat Outbound)</option>
+                  {(() => {
+                    const tx = activeTransactions.find((t) => t.id === selectedTxId);
+                    if (!tx || tx.direction === 'INBOUND') {
+                      return <option value="BASTB">BASTB (Berita Acara Bongkar Inbound)</option>;
+                    }
+                    return <option value="SURAT_JALAN">Surat Jalan (Manifest Muat Outbound)</option>;
+                  })()}
                 </select>
               </div>
 

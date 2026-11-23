@@ -35,14 +35,17 @@ export const AppContent: React.FC = () => {
       const data = await api.getWarehouses();
       if (data && data.length > 0) {
         setWarehouses(data);
-        if (!selectedWarehouseId) {
-          setSelectedWarehouseId(data[0].id);
-        }
+        setSelectedWarehouseId((prev) => {
+          if (!prev || !data.some((w) => w.id === prev)) {
+            return data[0].id;
+          }
+          return prev;
+        });
       }
     } catch {
       addToast('error', 'Gagal memuat daftar gudang');
     }
-  }, [isAuthenticated, selectedWarehouseId, addToast]);
+  }, [isAuthenticated, addToast]);
 
   useEffect(() => {
     if (isAuthenticated) {

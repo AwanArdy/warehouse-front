@@ -17,6 +17,22 @@ import type {
 
 const API_BASE_URL = '';
 
+function normalizeGateTransaction(tx: any): GateTransaction {
+  if (!tx) return tx;
+  return {
+    ...tx,
+    plateNumber: tx.plateNumber || tx.vehicle?.plateNumber || '',
+    vType: tx.vType || tx.vehicle?.vType || 'MOBIL_BOX',
+    companyName: tx.companyName || tx.vehicle?.companyName || '',
+    dockNumber: tx.dockNumber || tx.dock?.dockNumber || null,
+    warehouseCode: tx.warehouseCode || tx.warehouse?.code || '',
+    warehouseName: tx.warehouseName || tx.warehouse?.name || '',
+    containerNumber: tx.containerNumber || tx.container?.containerNumber || null,
+    containerSize: tx.containerSize || tx.container?.size || null,
+    sealNumber: tx.sealNumber || tx.container?.sealNumber || null,
+  };
+}
+
 class ApiClient {
   private getAccessToken(): string | null {
     return localStorage.getItem('warehouse_access_token');
@@ -225,11 +241,13 @@ class ApiClient {
   // Gate Operations
   async getGateTransactions(status?: string): Promise<GateTransaction[]> {
     const query = status ? `?status=${status}` : '';
-    return this.request<GateTransaction[]>(`/api/v1/gate/transactions${query}`);
+    const res = await this.request<GateTransaction[]>(`/api/v1/gate/transactions${query}`);
+    return Array.isArray(res) ? res.map(normalizeGateTransaction) : [];
   }
 
   async getGateTransactionDetail(id: string): Promise<GateTransaction> {
-    return this.request<GateTransaction>(`/api/v1/gate/transactions/${id}`);
+    const res = await this.request<GateTransaction>(`/api/v1/gate/transactions/${id}`);
+    return normalizeGateTransaction(res);
   }
 
   async processGateIn(input: {
@@ -245,66 +263,85 @@ class ApiClient {
       isEmpty: boolean;
     };
   }): Promise<GateTransaction> {
-    return this.request<GateTransaction>('/api/v1/gate/in', {
+    const res = await this.request<GateTransaction>('/api/v1/gate/in', {
       method: 'POST',
       body: JSON.stringify(input),
     });
+    return normalizeGateTransaction(res);
   }
 
   async assignDock(transactionId: string, dockId: string): Promise<GateTransaction> {
-    return this.request<GateTransaction>(`/api/v1/gate/transactions/${transactionId}/assign-dock`, {
+    const res = await this.request<GateTransaction>(`/api/v1/gate/transactions/${transactionId}/assign-dock`, {
       method: 'POST',
       body: JSON.stringify({ dockId }),
     });
+    return normalizeGateTransaction(res);
   }
 
   async processGateOut(transactionId: string, notes?: string): Promise<GateTransaction> {
-    return this.request<GateTransaction>(`/api/v1/gate/transactions/${transactionId}/gate-out`, {
+    const res = await this.request<GateTransaction>(`/api/v1/gate/transactions/${transactionId}/gate-out`, {
       method: 'POST',
       body: JSON.stringify({ notes }),
     });
+    return normalizeGateTransaction(res);
   }
 
   // Cargo & Inventory
   async getTransactionCargoItems(transactionId: string): Promise<TransactionCargoItem[]> {
-    return this.request<TransactionCargoItem[]>(
+    const res = await this.request<any>(
       `/api/v1/gate/transactions/${transactionId}/cargo-items`,
     );
+    return Array.isArray(res) ? res : res?.items || [];
   }
 
   async recordCargoItems(
     transactionId: string,
     items: Array<{ itemId: string; quantity: number; weightKg?: number; conditionNotes?: string }>,
   ): Promise<TransactionCargoItem[]> {
-    return this.request<TransactionCargoItem[]>(
+    const res = await this.request<any>(
       `/api/v1/gate/transactions/${transactionId}/cargo-items`,
       {
         method: 'PUT',
         body: JSON.stringify({ items }),
       },
     );
+    return Array.isArray(res) ? res : res?.items || [];
   }
 
   async finalizeInbound(transactionId: string): Promise<GateTransaction> {
-    return this.request<GateTransaction>(
+    const res = await this.request<GateTransaction>(
       `/api/v1/gate/transactions/${transactionId}/finalize-inbound`,
       {
         method: 'POST',
       },
     );
+    return normalizeGateTransaction(res);
   }
 
   async finalizeOutbound(transactionId: string): Promise<GateTransaction> {
-    return this.request<GateTransaction>(
+    const res = await this.request<GateTransaction>(
       `/api/v1/gate/transactions/${transactionId}/finalize-outbound`,
       {
         method: 'POST',
       },
     );
+    return normalizeGateTransaction(res);
   }
 
   async getWarehouseInventory(warehouseId: string): Promise<WarehouseInventoryReport> {
-    return this.request<WarehouseInventoryReport>(`/api/v1/warehouses/${warehouseId}/inventory`);
+    const res = await this.request<any>(`/api/v1/warehouses/${warehouseId}/inventory`);
+    if (res && res.utilization) {
+      if (res.utilization.utilizationPercentage === undefined && res.utilization.utilizationPercent !== undefined) {
+        res.utilization.utilizationPercentage = res.utilization.utilizationPercent;
+      }
+    }
+    if (res && Array.isArray(res.stocks)) {
+      res.stocks = res.stocks.map((s: any) => ({
+        ...s,
+        name: s.name || s.itemName || '',
+      }));
+    }
+    return res as WarehouseInventoryReport;
   }
 
   // Documents
@@ -340,7 +377,9 @@ class ApiClient {
   }
 
   getDocumentPdfUrl(documentId: string): string {
-    return `${API_BASE_URL}/api/v1/documents/${documentId}/pdf`;
+    const token = this.getAccessToken();
+    const query = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_BASE_URL}/api/v1/documents/${documentId}/pdf${query}`;
   }
 }
 

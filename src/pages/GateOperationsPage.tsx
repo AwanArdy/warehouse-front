@@ -45,6 +45,7 @@ export const GateOperationsPage: React.FC<GateProps> = ({
 
   // Modal Gate-In State
   const [isGateInModalOpen, setIsGateInModalOpen] = useState(false);
+  const [destinationWarehouseId, setDestinationWarehouseId] = useState(activeWarehouseId);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverLicenseNo, setDriverLicenseNo] = useState('');
@@ -98,11 +99,17 @@ export const GateOperationsPage: React.FC<GateProps> = ({
       return;
     }
 
+    const whId = destinationWarehouseId || activeWarehouseId;
+    if (!whId) {
+      onNotify('error', 'Pilih lokasi gudang tujuan terlebih dahulu');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await api.processGateIn({
         vehicleId: selectedVehicleId,
-        warehouseId: activeWarehouseId,
+        warehouseId: whId,
         driverName,
         driverLicenseNo,
         direction,
@@ -353,6 +360,24 @@ export const GateOperationsPage: React.FC<GateProps> = ({
             </p>
 
             <form onSubmit={handleGateInSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Gudang Tujuan
+                </label>
+                <select
+                  required
+                  value={destinationWarehouseId || activeWarehouseId}
+                  onChange={(e) => setDestinationWarehouseId(e.target.value)}
+                  className="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 font-semibold text-slate-800"
+                >
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.code} - {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                   Pilih Kendaraan

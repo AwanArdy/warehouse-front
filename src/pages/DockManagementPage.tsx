@@ -58,6 +58,10 @@ export const DockManagementPage: React.FC<DockProps> = ({ activeWarehouseId, onN
 
   const handleCreateDock = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeWarehouseId) {
+      onNotify('error', 'Pilih lokasi gudang terlebih dahulu');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.createDock({

@@ -43,7 +43,7 @@ export const InventoryPage: React.FC<InventoryProps> = ({ activeWarehouseId, onN
     setIsLoading(true);
     try {
       const [inv, items, txs] = await Promise.all([
-        api.getWarehouseInventory(activeWarehouseId),
+        activeWarehouseId ? api.getWarehouseInventory(activeWarehouseId) : Promise.resolve(null),
         api.getItems(),
         api.getGateTransactions(),
       ]);
@@ -72,10 +72,11 @@ export const InventoryPage: React.FC<InventoryProps> = ({ activeWarehouseId, onN
     setConditionNotes('Kondisi baik, kemasan rapi');
     try {
       const existing = await api.getTransactionCargoItems(tx.id);
+      const itemsList = Array.isArray(existing) ? existing : (existing as any)?.items || [];
       setRecordedItems(
-        existing.map((e) => ({
+        itemsList.map((e: any) => ({
           itemId: e.itemId,
-          itemName: e.itemName,
+          itemName: e.itemName || e.name || '',
           quantity: e.quantity,
           weightKg: e.weightKg || undefined,
           conditionNotes: e.conditionNotes || undefined,
@@ -188,11 +189,11 @@ export const InventoryPage: React.FC<InventoryProps> = ({ activeWarehouseId, onN
                 Utilisasi Kapasitas Gudang ({utilization.warehouseCode})
               </span>
               <h3 className="text-2xl font-black mt-1">
-                {utilization.utilizationPercentage.toFixed(2)}% Terpakai
+                {(utilization.utilizationPercentage ?? (utilization as any).utilizationPercent ?? 0).toFixed(2)}% Terpakai
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                Volume Terpakai: <span className="font-semibold text-white">{utilization.usedVolumeM3.toFixed(2)} m³</span> dari total kapasitas{' '}
-                <span className="font-semibold text-white">{utilization.maxVolumeM3.toLocaleString()} m³</span>
+                Volume Terpakai: <span className="font-semibold text-white">{(utilization.usedVolumeM3 ?? 0).toFixed(2)} m³</span> dari total kapasitas{' '}
+                <span className="font-semibold text-white">{(utilization.maxVolumeM3 ?? 0).toLocaleString()} m³</span>
               </p>
             </div>
 
@@ -200,7 +201,7 @@ export const InventoryPage: React.FC<InventoryProps> = ({ activeWarehouseId, onN
               <div className="w-full bg-slate-700/80 rounded-full h-3.5 overflow-hidden p-0.5">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-brand-400 to-emerald-400 transition-all duration-700"
-                  style={{ width: `${Math.min(utilization.utilizationPercentage, 100)}%` }}
+                  style={{ width: `${Math.min(utilization.utilizationPercentage ?? (utilization as any).utilizationPercent ?? 0, 100)}%` }}
                 />
               </div>
             </div>
